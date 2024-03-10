@@ -47,9 +47,9 @@ jobs:
 
           # Zip artifacts for Windows
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            7z a artifacts.zip artifacts/
+            7z a quicssh-${{ matrix.os }}.zip artifacts/
           else
-            tar -czvf artifacts.tar.gz artifacts/
+            tar -czvf quicssh-${{ matrix.os }}.tar.gz artifacts/
           fi
         shell: bash
 
@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}
-          path: ./artifacts.*
+          path: ./quicssh*
     env:
       PROJECT_NAME: quicssh
 
@@ -80,4 +80,6 @@ jobs:
           prerelease: false
           title: Latest Release
           files: |
-            *
+            macos-latest/*.tar.gz
+            ubuntu-latest/*.tar.gz
+            windows-latest/*.zip
