@@ -1,28 +1,9 @@
 use crate::server::ALPN_QUIC_HTTP;
 use std::sync::Arc;
 use std::{error::Error, net::SocketAddr};
-
-struct SkipServerVerification;
-
-impl SkipServerVerification {
-    fn new() -> Arc<Self> {
-        Arc::new(Self)
-    }
-}
-
-impl rustls::client::ServerCertVerifier for SkipServerVerification {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &rustls::Certificate,
-        _intermediates: &[rustls::Certificate],
-        _server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item=&[u8]>,
-        _ocsp_response: &[u8],
-        _now: std::time::SystemTime,
-    ) -> Result<rustls::client::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::ServerCertVerified::assertion())
-    }
-}
+use quinn::VarInt;
+use tokio::io::{stdin, stdout};
+use crate::verifier::SkipServerVerification;
 
 pub(crate) async fn invoke(addr: SocketAddr) -> Result<(), Box<dyn Error>> {
     let mut client_crypto = rustls::ClientConfig::builder()
@@ -36,21 +17,17 @@ pub(crate) async fn invoke(addr: SocketAddr) -> Result<(), Box<dyn Error>> {
     endpoint.set_default_client_config(client_config);
     let conn = endpoint.connect(addr, "localhost").unwrap().await?;
 
-
     while let Ok((mut writer, mut reader)) = conn.open_bi().await {
         println!("Established Connection to {}", conn.remote_address());
-        let reader_handle = tokio::spawn(async move {
-            loop {
-                tokio::io::copy(&mut tokio::io::stdin(), &mut writer).await.unwrap_or_default();
-            }
-        });
-        let writer_handle = tokio::spawn(async move {
-            loop {
-                tokio::io::copy(&mut reader, &mut tokio::io::stdout()).await.unwrap_or_default();
-            }
-        });
-        let _ = tokio::join!(reader_handle, writer_handle);
+        let mut server = tokio::io::join(&mut reader, &mut writer);
+        let (inp, out) = (stdin(), stdout());
+        let mut localhost = tokio::io::join(inp, out);
+        if let Ok((read, wrote)) = tokio::io::copy_bidirectional(&mut server, &mut localhost).await {
+            println!("Read {read}bytes. Wrote: {wrote}bytes");
+            continue;
+        };
+        break;
     }
-
+    conn.close(VarInt::from_u32(0), b"Closing Connection");
     Ok(())
 }
