@@ -16,6 +16,8 @@ jobs:
             target: x86_64-pc-windows-msvc
           - os: macos-latest
             target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
 
     steps:
       - name: Checkout code
@@ -44,6 +46,8 @@ jobs:
         run: |
           mkdir artifacts
           cp target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }} artifacts/
+          cp README.md artifacts/
+          cp LICENSE artifacts/
 
           # Zip artifacts for Windows
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
@@ -81,5 +85,6 @@ jobs:
           title: Latest Release
           files: |
             macos-latest/*.tar.gz
+            macos-14/*.tar.gz
             ubuntu-latest/*.tar.gz
             windows-latest/*.zip
