@@ -1,6 +1,7 @@
+use std::sync::Arc;
 use std::{error::Error, net::SocketAddr};
-use std::sync::{Arc};
-use tokio::net::{TcpStream};
+use tokio::net::TcpStream;
+use tracing::{debug, info};
 
 pub const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
 
@@ -24,18 +25,22 @@ pub(crate) async fn invoke(bind: SocketAddr) -> Result<(), Box<dyn Error>> {
     server_config.use_retry(true);
 
     let endpoint = quinn::Endpoint::server(server_config, bind)?;
-    eprintln!("Listening for connections on {}", endpoint.local_addr()?);
+    info!("Listening for connections on {}", endpoint.local_addr()?);
     while let Some(connecting) = endpoint.accept().await {
-        println!("Got Connection from {}", connecting.remote_address());
+        info!("Got Connection from {}", connecting.remote_address());
         tokio::spawn(async move {
             let connection = connecting.await.unwrap();
             while let Ok((mut writer, mut reader)) = connection.accept_bi().await {
-                let mut stream = TcpStream::connect("127.0.0.1:22").await.unwrap();
+                let mut stream = TcpStream::connect("127.0.0.1:22")
+                    .await
+                    .expect("Failed to connect to sshd");
                 tokio::spawn(async move {
                     loop {
                         let mut joined = tokio::io::join(&mut reader, &mut writer);
-                        if let Ok((read, wrote)) = tokio::io::copy_bidirectional(&mut stream, &mut joined).await {
-                            println!("Read from SSH: {read}bytes. Wrote to SSH: {wrote}bytes.");
+                        if let Ok((read, wrote)) =
+                            tokio::io::copy_bidirectional(&mut stream, &mut joined).await
+                        {
+                            debug!("Read from SSH: {read}bytes. Wrote to SSH: {wrote}bytes.");
                             continue;
                         };
                         break;
@@ -43,6 +48,6 @@ pub(crate) async fn invoke(bind: SocketAddr) -> Result<(), Box<dyn Error>> {
                 });
             }
         });
-    };
+    }
     Ok(())
 }

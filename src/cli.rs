@@ -5,6 +5,8 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(version, about, long_about = "A QUIC Proxy for SSH")]
 pub(crate) struct Cli {
+    #[arg(short, long, default_value = "false")]
+    pub(crate) verbose: bool,
     #[command(subcommand)]
     pub(crate) command: Commands,
 }

@@ -9,8 +9,12 @@ mod verifier;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt::init();
     let args = cli::Cli::parse();
+
+    if args.verbose {
+        tracing_subscriber::fmt::init();
+    }
+    tracing::info!("Verbose mode enabled");
     match args.command {
         cli::Commands::Server { bind } => server::invoke(bind).await,
         cli::Commands::Client { addr } => client::invoke(addr).await,
