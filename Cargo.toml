@@ -7,13 +7,9 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.2", features = ["derive"] }
-quic = "0.0.3"
 quinn = "0.10.2"
-rand = "0.8.5"
 rcgen = "0.12.1"
-rsa = "0.9.6"
-x509-ocsp = "0.2.1"
 rustls = { version = "0.21.10", features = ["dangerous_configuration"] }
-tokio = { version = "1.36.0", features = ["full"] }
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros", "io-std", "io-util"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
