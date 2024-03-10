@@ -1,12 +1,11 @@
 use std::{error::Error, net::SocketAddr};
-use std::sync::Arc;
-
+use std::sync::{Arc};
 use tokio::net::{TcpStream};
 
 pub const ALPN_QUIC_HTTP: &[&[u8]] = &[b"hq-29"];
 
 pub(crate) async fn invoke(bind: SocketAddr) -> Result<(), Box<dyn Error>> {
-    let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+    let cert = rcgen::generate_simple_self_signed(vec!["bruh".into()]).unwrap();
     let key = cert.serialize_private_key_der();
     let cert = cert.serialize_der().unwrap();
     let key = rustls::PrivateKey(key);
@@ -24,19 +23,24 @@ pub(crate) async fn invoke(bind: SocketAddr) -> Result<(), Box<dyn Error>> {
     transport_config.max_concurrent_uni_streams(0_u8.into());
     server_config.use_retry(true);
 
-
     let endpoint = quinn::Endpoint::server(server_config, bind)?;
-    eprintln!("listening on {}", endpoint.local_addr()?);
+    eprintln!("Listening for connections on {}", endpoint.local_addr()?);
     while let Some(connecting) = endpoint.accept().await {
         println!("Got Connection from {}", connecting.remote_address());
-        let mut stream = TcpStream::connect("127.0.0.1:22").await.unwrap();
         tokio::spawn(async move {
             let connection = connecting.await.unwrap();
-            if let Ok((mut writer, mut reader)) = connection.accept_bi().await {
-                loop {
-                    tokio::io::copy(&mut stream, &mut writer).await.unwrap_or_default();
-                    tokio::io::copy(&mut reader, &mut stream).await.unwrap_or_default();
-                }
+            while let Ok((mut writer, mut reader)) = connection.accept_bi().await {
+                let mut stream = TcpStream::connect("127.0.0.1:22").await.unwrap();
+                tokio::spawn(async move {
+                    loop {
+                        let mut joined = tokio::io::join(&mut reader, &mut writer);
+                        if let Ok((read, wrote)) = tokio::io::copy_bidirectional(&mut stream, &mut joined).await {
+                            println!("Read from SSH: {read}bytes. Wrote to SSH: {wrote}bytes.");
+                            continue;
+                        };
+                        break;
+                    }
+                });
             }
         });
     };
