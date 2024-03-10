@@ -1,0 +1,53 @@
+name: Rust Binary Release
+
+on:
+  push:
+
+jobs:
+  build:
+    name: Build Rust Binary Releases
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package Artifacts
+        run: |
+          mkdir artifacts
+          cp target/${{ matrix.target }}/release/${{ env.PROJECT_NAME }} artifacts/
+          
+          # Zip artifacts for Windows
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            7z a artifacts.zip artifacts/
+          else
+            tar -czvf artifacts.tar.gz artifacts/
+          fi
+        shell: bash
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}
+          path: ./artifacts.*
+    env:
+      PROJECT_NAME: quicssh
